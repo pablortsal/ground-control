@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ground-control"
+version = "0.1.0"
+description = "AI Agent Orchestration System for Software Projects"
+authors = [
+    {name = "Pablo", email = "pablo@example.com"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "typer[all]>=0.12.0",
+    "anthropic>=0.39.0",
+    "openai>=1.54.0",
+    "pyyaml>=6.0.1",
+    "python-frontmatter>=1.1.0",
+    "aiosqlite>=0.20.0",
+    "rich>=13.7.0",
+    "pydantic>=2.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "black>=24.0.0",
+    "ruff>=0.6.0",
+]
+
+[project.scripts]
+gctl = "ground_control.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ground_control"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

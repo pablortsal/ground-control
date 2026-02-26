@@ -1,0 +1,16 @@
+name: example
+repo_path: /tmp/gc-example-project
+structure:
+  language: python
+  framework: fastapi
+  test_runner: pytest
+ticket_source:
+  type: local_yaml
+  path: ./tickets/
+agents:
+  - developer
+  - reviewer
+settings:
+  max_parallel_agents: 2
+  implementer: claude_code
+  default_llm: anthropic
