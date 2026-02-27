@@ -6,7 +6,7 @@ structure:
   test_runner: pytest
 ticket_source:
   type: local_yaml
-  path: ./tickets/
+  path: ./tickets/example/
 agents:
   - developer
   - reviewer

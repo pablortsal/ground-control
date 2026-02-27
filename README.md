@@ -29,7 +29,7 @@ cd my-workspace
 gctl agents list
 
 # Create a project config in projects/my-project.yaml
-# Add tickets to tickets/
+# Add tickets to tickets/my-project/
 
 # Run orchestration
 gctl run my-project
@@ -94,7 +94,7 @@ structure:
   test_runner: vitest
 ticket_source:
   type: local_yaml
-  path: ./tickets/
+  path: ./tickets/my-project/
 agents:
   - developer
   - reviewer
