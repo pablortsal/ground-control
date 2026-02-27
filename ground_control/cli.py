@@ -11,6 +11,10 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ground_control import __version__
+from ground_control.env import load_environment
+
+# Load environment variables from .env file at startup
+load_environment()
 
 app = typer.Typer(
     name="gc",
@@ -79,13 +83,39 @@ def run(
 ):
     """Execute an orchestration run for a project."""
     async def _run():
+        from ground_control.config import load_gc_config, find_project_config, load_project_config
+        from ground_control.env import check_required_keys
         from ground_control.orchestrator import Orchestrator
+
+        # Load project config to check which LLM provider is needed
+        base = Path(base_dir).resolve()
+        gc_config = load_gc_config(base)
+        project_path = find_project_config(project, base / gc_config.projects_dir)
+        project_config = load_project_config(project_path)
+        
+        # Check if API key is set for the default LLM
+        provider = project_config.settings.default_llm
+        key_status = check_required_keys([provider])
+        
+        if not key_status[provider]:
+            console.print(Panel(
+                f"[bold red]Error:[/] API key not set for {provider}\n\n"
+                f"Please set the [bold]{provider.upper()}_API_KEY[/] environment variable.\n\n"
+                f"You can:\n"
+                f"  1. Create a [bold].env[/] file in your workspace with:\n"
+                f"     [dim]{provider.upper()}_API_KEY=your_key_here[/]\n"
+                f"  2. Export it in your shell:\n"
+                f"     [dim]export {provider.upper()}_API_KEY=your_key_here[/]",
+                title="[bold red]Missing API Key[/]",
+                border_style="red",
+            ))
+            raise typer.Exit(1)
 
         orchestrator = await Orchestrator.from_project_name(project, base_dir)
         try:
             run_id = await orchestrator.run()
             console.print(f"\n[dim]Run ID: {run_id}[/]")
-            console.print("[dim]View details with: gc status {project}[/]")
+            console.print("[dim]View details with: gctl status {project}[/]")
         finally:
             await orchestrator.cleanup()
 

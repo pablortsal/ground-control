@@ -21,6 +21,10 @@ Tickets (YAML) ──► Planner (LLM) ──► Task Queue ──► Agents ─
 # Install
 pip install -e .
 
+# Set up API keys
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY or OPENAI_API_KEY
+
 # Initialize a workspace
 gctl init my-workspace
 cd my-workspace
@@ -118,8 +122,25 @@ settings:
 ## Requirements
 
 - Python >= 3.10
-- API keys for your chosen LLM provider (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)
+- API keys for your chosen LLM provider (set via `.env` file or environment variables):
+  - `ANTHROPIC_API_KEY` for Claude models
+  - `OPENAI_API_KEY` for GPT models
 - Cursor CLI and/or Claude Code CLI installed for code implementation
+
+## Configuration
+
+Create a `.env` file in your Ground Control workspace:
+
+```bash
+# Copy the example
+cp .env.example .env
+
+# Edit and add your keys
+ANTHROPIC_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
+```
+
+The system will automatically load this file when running commands.
 
 ## Roadmap
 
