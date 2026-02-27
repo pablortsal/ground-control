@@ -31,6 +31,7 @@ class ClaudeCodeImplementer(BaseImplementer):
                 "-p", prompt,
                 "--output-format", "text",
                 "--max-turns", "50",
+                "--dangerously-skip-permissions",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=project_path,
