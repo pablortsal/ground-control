@@ -9,7 +9,7 @@ from ground_control.implementers.base import BaseImplementer, ImplementerResult
 
 
 class CursorCLIImplementer(BaseImplementer):
-    """Executes tasks via the Cursor CLI (cursor command)."""
+    """Executes tasks via the Cursor Agent CLI (cursor agent command)."""
 
     COMMAND = "cursor"
 
@@ -28,8 +28,11 @@ class CursorCLIImplementer(BaseImplementer):
         try:
             proc = await asyncio.create_subprocess_exec(
                 self.COMMAND,
-                "--project-path", project_path,
-                "--prompt", prompt,
+                "agent",
+                "--print",
+                "--force",  # Auto-approve actions without prompting
+                "--workspace", project_path,
+                prompt,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=project_path,
@@ -52,18 +55,18 @@ class CursorCLIImplementer(BaseImplementer):
                 return ImplementerResult(
                     success=False,
                     output=stdout_text,
-                    error=f"Cursor CLI exited with code {proc.returncode}: {stderr_text}",
+                    error=f"Cursor Agent exited with code {proc.returncode}: {stderr_text}",
                 )
 
         except asyncio.TimeoutError:
             return ImplementerResult(
                 success=False,
-                error="Cursor CLI execution timed out after 600 seconds",
+                error="Cursor Agent execution timed out after 600 seconds",
             )
         except Exception as e:
             return ImplementerResult(
                 success=False,
-                error=f"Failed to run Cursor CLI: {e}",
+                error=f"Failed to run Cursor Agent: {e}",
             )
 
     async def is_available(self) -> bool:
