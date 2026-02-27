@@ -127,9 +127,21 @@ class Planner:
     def _parse_plan(self, data: dict, tickets: list[Ticket]) -> list[PlannedTask]:
         raw_tasks = data.get("tasks", [])
         planned: list[PlannedTask] = []
+        seen_ids: set[str] = set()
+        
+        # Generate a unique prefix for this planning session
+        session_prefix = uuid.uuid4().hex[:6]
 
-        for raw in raw_tasks:
-            task_id = raw.get("id", f"task-{uuid.uuid4().hex[:8]}")
+        for idx, raw in enumerate(raw_tasks):
+            # Always generate a globally unique ID by including session prefix
+            task_id = f"task-{session_prefix}-{idx+1:03d}"
+            
+            # Ensure uniqueness within this session (paranoid check)
+            while task_id in seen_ids:
+                task_id = f"task-{session_prefix}-{idx+1:03d}-{uuid.uuid4().hex[:4]}"
+            
+            seen_ids.add(task_id)
+            
             planned.append(PlannedTask(
                 id=task_id,
                 title=raw.get("title", "Untitled task"),

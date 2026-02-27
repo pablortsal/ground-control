@@ -85,6 +85,7 @@ def run(
     async def _run():
         from ground_control.config import load_gc_config, find_project_config, load_project_config
         from ground_control.env import check_required_keys
+        from ground_control.implementers import get_implementer
         from ground_control.orchestrator import Orchestrator
 
         # Load project config to check which LLM provider is needed
@@ -110,6 +111,30 @@ def run(
                 border_style="red",
             ))
             raise typer.Exit(1)
+        
+        # Check if the implementer CLI is installed
+        implementer_name = project_config.settings.implementer
+        implementer = get_implementer(implementer_name)
+        
+        if not await implementer.is_available():
+            install_instructions = {
+                "cursor_cli": "Install from https://cursor.com or via: brew install cursor (macOS)",
+                "claude_code": "Install via: npm install -g @anthropic-ai/claude-code",
+            }
+            instruction = install_instructions.get(implementer_name, f"Install the {implementer_name} CLI tool")
+            
+            console.print(Panel(
+                f"[bold red]Error:[/] Implementer '{implementer_name}' not found\n\n"
+                f"The CLI tool required to write code is not installed.\n\n"
+                f"[bold]Installation:[/]\n"
+                f"  {instruction}",
+                title="[bold red]Missing Implementer[/]",
+                border_style="red",
+            ))
+            raise typer.Exit(1)
+
+        console.print(f"[dim]✓ API key configured for {provider}[/]")
+        console.print(f"[dim]✓ Implementer '{implementer_name}' is available[/]\n")
 
         orchestrator = await Orchestrator.from_project_name(project, base_dir)
         try:
@@ -216,6 +241,152 @@ def status(
 def version():
     """Show Ground Control version."""
     console.print(f"[bold cyan]Ground Control[/] v{__version__}")
+
+
+@app.command()
+def clean(
+    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
+    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
+):
+    """Delete the database and reset all run history."""
+    from ground_control.config import load_gc_config
+    
+    base = Path(base_dir).resolve()
+    gc_config = load_gc_config(base)
+    db_path = base / gc_config.db_path
+    
+    if not db_path.exists():
+        console.print(f"[yellow]No database found at {db_path}[/]")
+        return
+    
+    if not confirm:
+        response = typer.confirm(
+            f"This will permanently delete all run history in {db_path}. Continue?"
+        )
+        if not response:
+            console.print("[dim]Cancelled.[/]")
+            raise typer.Exit(0)
+    
+    db_path.unlink()
+    console.print(f"[green]✓[/] Database deleted: {db_path}")
+    console.print("[dim]The database will be recreated automatically on next run.[/]")
+
+
+@app.command()
+def check(
+    project: str = typer.Argument(..., help="Project name to check"),
+    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
+):
+    """Check if all requirements are met to run a project."""
+    async def _check():
+        from ground_control.config import load_gc_config, find_project_config, load_project_config
+        from ground_control.env import check_required_keys
+        from ground_control.implementers import get_implementer
+        from ground_control.agent_manager import AgentManager
+
+        console.print(Panel(
+            f"[bold]Checking setup for project:[/] {project}",
+            title="[bold cyan]Ground Control - Setup Check[/]",
+            border_style="cyan",
+        ))
+
+        base = Path(base_dir).resolve()
+        gc_config = load_gc_config(base)
+        
+        checks = []
+        
+        # Check 1: Project config exists
+        try:
+            project_path = find_project_config(project, base / gc_config.projects_dir)
+            project_config = load_project_config(project_path)
+            checks.append(("✓", "green", f"Project config found: {project_path.name}"))
+        except FileNotFoundError as e:
+            checks.append(("✗", "red", f"Project config not found: {e}"))
+            console.print("\n".join([f"[{color}]{icon}[/{color}] {msg}" for icon, color, msg in checks]))
+            raise typer.Exit(1)
+        
+        # Check 2: Repo path exists
+        repo_path = Path(project_config.repo_path)
+        if repo_path.exists():
+            checks.append(("✓", "green", f"Repo path exists: {project_config.repo_path}"))
+        else:
+            checks.append(("✗", "red", f"Repo path not found: {project_config.repo_path}"))
+        
+        # Check 3: API key
+        provider = project_config.settings.default_llm
+        key_status = check_required_keys([provider])
+        if key_status[provider]:
+            checks.append(("✓", "green", f"API key set for {provider}"))
+        else:
+            checks.append(("✗", "red", f"API key missing for {provider} (set {provider.upper()}_API_KEY)"))
+        
+        # Check 4: Implementer CLI
+        implementer_name = project_config.settings.implementer
+        implementer = get_implementer(implementer_name)
+        if await implementer.is_available():
+            checks.append(("✓", "green", f"Implementer '{implementer_name}' is installed"))
+        else:
+            install_instructions = {
+                "cursor_cli": "brew install cursor (macOS) or https://cursor.com",
+                "claude_code": "npm install -g @anthropic-ai/claude-code",
+            }
+            instruction = install_instructions.get(implementer_name, "Install required CLI")
+            checks.append(("✗", "red", f"Implementer '{implementer_name}' not found ({instruction})"))
+        
+        # Check 5: Agents
+        agent_manager = AgentManager(base / gc_config.agents_dir)
+        try:
+            agent_manager.load_all()
+            missing_agents = [a for a in project_config.agents if a not in agent_manager._agents]
+            if not missing_agents:
+                checks.append(("✓", "green", f"All {len(project_config.agents)} required agents found"))
+            else:
+                checks.append(("✗", "red", f"Missing agents: {', '.join(missing_agents)}"))
+        except FileNotFoundError:
+            checks.append(("✗", "red", f"Agents directory not found: {base / gc_config.agents_dir}"))
+        
+        # Check 6: Tickets
+        ticket_path = Path(project_config.ticket_source.path)
+        if not ticket_path.is_absolute():
+            ticket_path = base / ticket_path
+        
+        if ticket_path.exists():
+            yaml_files = list(ticket_path.glob("*.yaml")) + list(ticket_path.glob("*.yml"))
+            if yaml_files:
+                checks.append(("✓", "green", f"Tickets found: {len(yaml_files)} file(s)"))
+            else:
+                checks.append(("⚠", "yellow", f"Ticket directory exists but empty: {ticket_path}"))
+        else:
+            checks.append(("⚠", "yellow", f"Ticket directory not found: {ticket_path}"))
+        
+        # Print all checks
+        console.print()
+        for icon, color, msg in checks:
+            console.print(f"[{color}]{icon}[/{color}] {msg}")
+        
+        # Summary
+        errors = sum(1 for _, color, _ in checks if color == "red")
+        warnings = sum(1 for _, color, _ in checks if color == "yellow")
+        
+        console.print()
+        if errors > 0:
+            console.print(Panel(
+                f"[bold red]{errors} error(s) found.[/] Fix the issues above before running.",
+                border_style="red",
+            ))
+            raise typer.Exit(1)
+        elif warnings > 0:
+            console.print(Panel(
+                f"[bold yellow]{warnings} warning(s) found.[/] You can proceed but may have issues.",
+                border_style="yellow",
+            ))
+        else:
+            console.print(Panel(
+                "[bold green]All checks passed! ✓[/] Ready to run orchestration.",
+                border_style="green",
+            ))
+
+    _run_async(_check())
 
 
 # ── Agents subcommands ────────────────────────────────────────────────

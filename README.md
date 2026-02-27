@@ -35,6 +35,9 @@ gctl agents list
 # Create a project config in projects/my-project.yaml
 # Add tickets to tickets/my-project/
 
+# Validate your setup
+gctl check my-project
+
 # Run orchestration
 gctl run my-project
 
@@ -113,8 +116,10 @@ settings:
 | Command | Description |
 |---|---|
 | `gctl init [path]` | Initialize a ground-control workspace |
+| `gctl check <project>` | Validate setup (API keys, CLI tools, config) |
 | `gctl run <project>` | Run orchestration for a project |
 | `gctl status <project>` | Show run/task status |
+| `gctl clean` | Delete database and reset run history |
 | `gctl agents list` | List available agents |
 | `gctl tickets list <project>` | List project tickets |
 | `gctl version` | Show version |
