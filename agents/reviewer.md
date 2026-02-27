@@ -1,8 +1,6 @@
 ---
 name: reviewer
 role: "Code Reviewer"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
 capabilities:
   - review_code
   - suggest_improvements

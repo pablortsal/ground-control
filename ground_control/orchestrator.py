@@ -54,7 +54,11 @@ class Orchestrator:
         state = StateStore(base_dir / gc_config.db_path)
         await state.initialize()
 
-        llm = get_provider(project_config.settings.default_llm)
+        # Use project-level LLM settings
+        llm = get_provider(
+            project_config.settings.llm_provider,
+            default_model=project_config.settings.llm_model
+        )
 
         return cls(
             project_config=project_config,
@@ -165,7 +169,7 @@ class Orchestrator:
             )
 
         implementer_name = (
-            agent_def.implementer or self.project_config.settings.implementer
+            self.project_config.settings.implementer or agent_def.implementer
         )
 
         execution_id = await self.state.create_execution(

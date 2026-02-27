@@ -1,9 +1,6 @@
 ---
 name: developer
 role: "Senior Software Developer"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
-implementer: claude_code
 capabilities:
   - write_code
   - run_tests

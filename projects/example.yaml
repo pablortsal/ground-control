@@ -13,4 +13,5 @@ agents:
 settings:
   max_parallel_agents: 2
   implementer: claude_code
-  default_llm: anthropic
+  llm_provider: anthropic
+  llm_model: claude-sonnet-4-20250514

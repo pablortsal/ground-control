@@ -106,8 +106,6 @@ _PRODUCT_MANAGER = """\
 ---
 name: product-manager
 role: "Product Manager"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
 capabilities:
   - analyze_requirements
   - create_tickets
@@ -137,8 +135,6 @@ _ARCHITECT = """\
 ---
 name: architect
 role: "Software Architect"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
 capabilities:
   - design_architecture
   - review_technical_decisions
@@ -170,7 +166,6 @@ name: developer
 role: "Senior Software Developer"
 llm_provider: anthropic
 llm_model: claude-sonnet-4-20250514
-implementer: claude_code
 capabilities:
   - write_code
   - run_tests
@@ -200,8 +195,6 @@ _REVIEWER = """\
 ---
 name: reviewer
 role: "Code Reviewer"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
 capabilities:
   - review_code
   - suggest_improvements

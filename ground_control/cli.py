@@ -94,8 +94,8 @@ def run(
         project_path = find_project_config(project, base / gc_config.projects_dir)
         project_config = load_project_config(project_path)
         
-        # Check if API key is set for the default LLM
-        provider = project_config.settings.default_llm
+        # Check if API key is set for the LLM provider
+        provider = project_config.settings.llm_provider
         key_status = check_required_keys([provider])
         
         if not key_status[provider]:
@@ -313,7 +313,7 @@ def check(
             checks.append(("✗", "red", f"Repo path not found: {project_config.repo_path}"))
         
         # Check 3: API key
-        provider = project_config.settings.default_llm
+        provider = project_config.settings.llm_provider
         key_status = check_required_keys([provider])
         if key_status[provider]:
             checks.append(("✓", "green", f"API key set for {provider}"))

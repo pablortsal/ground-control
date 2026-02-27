@@ -17,7 +17,8 @@ class TicketSourceConfig(BaseModel):
 class ProjectSettings(BaseModel):
     max_parallel_agents: int = Field(default=3, ge=1, le=20)
     implementer: str = "claude_code"
-    default_llm: str = "anthropic"
+    llm_provider: str = "anthropic"
+    llm_model: str | None = None  # If None, uses provider's default
 
 
 class ProjectStructure(BaseModel):

@@ -1,8 +1,6 @@
 ---
 name: product-manager
 role: "Product Manager"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
 capabilities:
   - analyze_requirements
   - create_tickets

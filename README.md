@@ -78,7 +78,6 @@ name: developer
 role: "Senior Software Developer"
 llm_provider: anthropic
 llm_model: claude-sonnet-4-20250514
-implementer: claude_code
 capabilities:
   - write_code
   - run_tests
@@ -88,7 +87,14 @@ capabilities:
 
 You are a senior Software Developer. Your job is to implement
 technical tasks by writing high-quality, well-tested code.
+
+## Guidelines
+- Follow the project's coding standards
+- Write tests for all new features
+- Handle edge cases and errors gracefully
 ```
+
+**Note**: The `implementer` field is optional in agent definitions. It's usually better to specify it at the **project level** for flexibility.
 
 ## Project Configuration Example
 
@@ -107,9 +113,12 @@ agents:
   - reviewer
 settings:
   max_parallel_agents: 3
-  implementer: claude_code
-  default_llm: anthropic
+  implementer: claude_code  # or cursor_cli (project-level control)
+  llm_provider: anthropic   # LLM provider for all agents
+  llm_model: claude-sonnet-4-20250514  # Specific model (optional)
 ```
+
+**Settings Priority**: All infrastructure settings (LLM provider, model, implementer) are defined at the project level. This allows the same agents to work across different projects with different tools and models.
 
 ## CLI Commands
 

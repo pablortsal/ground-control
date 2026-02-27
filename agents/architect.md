@@ -1,8 +1,6 @@
 ---
 name: architect
 role: "Software Architect"
-llm_provider: anthropic
-llm_model: claude-sonnet-4-20250514
 capabilities:
   - design_architecture
   - review_technical_decisions
