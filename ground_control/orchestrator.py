@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from ground_control.agent_manager import AgentDefinition, AgentManager
-from ground_control.config import ProjectConfig, load_project_config, find_project_config, load_gc_config
+from ground_control.config import ProjectConfig, load_project_config, find_project_config, get_base_dir
 from ground_control.implementers import get_implementer
 from ground_control.implementers.base import BaseImplementer
 from ground_control.llm import get_provider
@@ -40,18 +40,17 @@ class Orchestrator:
         self._implementers: dict[str, BaseImplementer] = {}
 
     @classmethod
-    async def from_project_name(cls, project_name: str, base_dir: str | Path | None = None) -> "Orchestrator":
+    async def from_project_name(cls, project_name: str) -> "Orchestrator":
         """Create an orchestrator from a project name, loading all configs."""
-        base_dir = Path(base_dir) if base_dir else Path.cwd()
-        gc_config = load_gc_config(base_dir)
+        base = get_base_dir()
 
-        project_path = find_project_config(project_name, base_dir / gc_config.projects_dir)
+        project_path = find_project_config(project_name, base / "projects")
         project_config = load_project_config(project_path)
 
-        agent_manager = AgentManager(base_dir / gc_config.agents_dir)
+        agent_manager = AgentManager(base / "agents")
         agent_manager.load_all()
 
-        state = StateStore(base_dir / gc_config.db_path)
+        state = StateStore(base / "ground_control.db")
         await state.initialize()
 
         # Use project-level LLM settings

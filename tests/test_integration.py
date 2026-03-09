@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
 import pytest
 import yaml
 
-from ground_control.agent_manager import AgentManager, create_default_agents
-from ground_control.config import load_project_config, ProjectConfig, load_gc_config
+from ground_control.agent_manager import AgentManager
+from ground_control.config import load_project_config, ProjectConfig, get_base_dir
 from ground_control.state import StateStore, RunStatus, TaskStatus
 from ground_control.ticket_sources.local_yaml import LocalYAMLTicketSource
 from ground_control.ticket_sources.base import TicketStatus, TicketPriority
@@ -30,7 +31,11 @@ def workspace(tmp_path):
     projects_dir.mkdir()
     tickets_dir.mkdir()
 
-    create_default_agents(agents_dir)
+    # Copy agent files from the repo's agents directory
+    base = get_base_dir()
+    source_agents = base / "agents"
+    for agent_file in source_agents.glob("*.md"):
+        shutil.copy2(agent_file, agents_dir / agent_file.name)
 
     # Create a fake repo path
     repo_dir = tmp_path / "fake-repo"
@@ -129,7 +134,7 @@ class TestAgentManager:
         assert dev.name == "developer"
         assert dev.role == "Senior Software Developer"
         assert dev.llm_provider == "anthropic"
-        assert dev.implementer == "claude_code"
+        assert dev.implementer is None  # Implementer is set at project level, not agent level
         assert "write_code" in dev.capabilities
         assert len(dev.system_prompt) > 0
 

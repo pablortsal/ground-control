@@ -1,17 +1,21 @@
+# Example Project Configuration
+# Copy this file and customize for your project
+
 name: example
-repo_path: /tmp/gc-example-project
+repo_path: /path/to/your/project  # Absolute path to your project repository
 structure:
   language: python
   framework: fastapi
   test_runner: pytest
 ticket_source:
   type: local_yaml
-  path: ./tickets/example/
+  path: /path/to/your/project/tickets/  # Absolute path to tickets directory in your project
 agents:
   - developer
   - reviewer
 settings:
   max_parallel_agents: 2
-  implementer: claude_code
+  implementer: cursor_cli  # or claude_code
   llm_provider: anthropic
   llm_model: claude-sonnet-4-20250514
+

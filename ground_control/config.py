@@ -46,12 +46,9 @@ class ProjectConfig(BaseModel):
         return str(path)
 
 
-class GroundControlConfig(BaseModel):
-    """Top-level ground-control configuration."""
-
-    agents_dir: str = "./agents"
-    projects_dir: str = "./projects"
-    db_path: str = "./ground_control.db"
+def get_base_dir() -> Path:
+    """Return the ground-control package root directory."""
+    return Path(__file__).resolve().parent.parent
 
 
 def load_project_config(path: str | Path) -> ProjectConfig:
@@ -64,21 +61,6 @@ def load_project_config(path: str | Path) -> ProjectConfig:
         data: dict[str, Any] = yaml.safe_load(f)
 
     return ProjectConfig(**data)
-
-
-def load_gc_config(base_dir: str | Path | None = None) -> GroundControlConfig:
-    """Load ground-control's own config, or return defaults."""
-    if base_dir is None:
-        base_dir = Path.cwd()
-    base_dir = Path(base_dir)
-
-    config_path = base_dir / "gc.yaml"
-    if config_path.exists():
-        with open(config_path) as f:
-            data = yaml.safe_load(f) or {}
-        return GroundControlConfig(**data)
-
-    return GroundControlConfig()
 
 
 def find_project_config(project_name: str, projects_dir: str | Path) -> Path:

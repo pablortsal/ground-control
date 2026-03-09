@@ -1,3 +1,0 @@
-agents_dir: ./agents
-projects_dir: ./projects
-db_path: ./ground_control.db

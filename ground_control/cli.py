@@ -38,60 +38,18 @@ def _run_async(coro):
 
 
 @app.command()
-def init(
-    path: str = typer.Argument(".", help="Directory to initialize ground-control in"),
-):
-    """Initialize a new ground-control workspace."""
-    from ground_control.agent_manager import create_default_agents
-
-    base = Path(path).resolve()
-    base.mkdir(parents=True, exist_ok=True)
-
-    dirs = ["agents", "projects", "tickets"]
-    for d in dirs:
-        (base / d).mkdir(exist_ok=True)
-
-    create_default_agents(base / "agents")
-
-    gc_yaml = base / "gc.yaml"
-    if not gc_yaml.exists():
-        gc_yaml.write_text(
-            "agents_dir: ./agents\n"
-            "projects_dir: ./projects\n"
-            "db_path: ./ground_control.db\n"
-        )
-
-    console.print(Panel(
-        f"[bold green]Workspace initialized at:[/] {base}\n\n"
-        f"  [dim]agents/[/]     - Agent definitions (4 defaults created)\n"
-        f"  [dim]projects/[/]   - Project configurations\n"
-        f"  [dim]tickets/[/]    - Local ticket files\n"
-        f"  [dim]gc.yaml[/]     - Ground Control config\n\n"
-        f"Next steps:\n"
-        f"  1. Create a project config in [bold]projects/[/]\n"
-        f"  2. Add tickets to [bold]tickets/[/]\n"
-        f"  3. Run [bold cyan]gc run <project>[/]",
-        title="[bold cyan]Ground Control[/]",
-        border_style="cyan",
-    ))
-
-
-@app.command()
 def run(
     project: str = typer.Argument(..., help="Project name to run"),
-    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
 ):
     """Execute an orchestration run for a project."""
     async def _run():
-        from ground_control.config import load_gc_config, find_project_config, load_project_config
+        from ground_control.config import get_base_dir, find_project_config, load_project_config
         from ground_control.env import check_required_keys
         from ground_control.implementers import get_implementer
         from ground_control.orchestrator import Orchestrator
 
-        # Load project config to check which LLM provider is needed
-        base = Path(base_dir).resolve()
-        gc_config = load_gc_config(base)
-        project_path = find_project_config(project, base / gc_config.projects_dir)
+        base = get_base_dir()
+        project_path = find_project_config(project, base / "projects")
         project_config = load_project_config(project_path)
         
         # Check if API key is set for the LLM provider
@@ -136,7 +94,7 @@ def run(
         console.print(f"[dim]✓ API key configured for {provider}[/]")
         console.print(f"[dim]✓ Implementer '{implementer_name}' is available[/]\n")
 
-        orchestrator = await Orchestrator.from_project_name(project, base_dir)
+        orchestrator = await Orchestrator.from_project_name(project)
         try:
             run_id = await orchestrator.run()
             console.print(f"\n[dim]Run ID: {run_id}[/]")
@@ -151,16 +109,14 @@ def run(
 def status(
     project: str = typer.Argument(..., help="Project name"),
     run_id: str = typer.Option(None, "--run-id", "-r", help="Specific run ID (defaults to latest)"),
-    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
 ):
     """Show the status of a project's runs and tasks."""
     async def _status():
-        from ground_control.config import load_gc_config
+        from ground_control.config import get_base_dir
         from ground_control.state import StateStore
 
-        base = Path(base_dir).resolve()
-        gc_config = load_gc_config(base)
-        state = StateStore(base / gc_config.db_path)
+        base = get_base_dir()
+        state = StateStore(base / "ground_control.db")
         await state.initialize()
 
         try:
@@ -245,15 +201,13 @@ def version():
 
 @app.command()
 def clean(
-    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
     confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Delete the database and reset all run history."""
-    from ground_control.config import load_gc_config
+    from ground_control.config import get_base_dir
     
-    base = Path(base_dir).resolve()
-    gc_config = load_gc_config(base)
-    db_path = base / gc_config.db_path
+    base = get_base_dir()
+    db_path = base / "ground_control.db"
     
     if not db_path.exists():
         console.print(f"[yellow]No database found at {db_path}[/]")
@@ -275,11 +229,10 @@ def clean(
 @app.command()
 def check(
     project: str = typer.Argument(..., help="Project name to check"),
-    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
 ):
     """Check if all requirements are met to run a project."""
     async def _check():
-        from ground_control.config import load_gc_config, find_project_config, load_project_config
+        from ground_control.config import get_base_dir, find_project_config, load_project_config
         from ground_control.env import check_required_keys
         from ground_control.implementers import get_implementer
         from ground_control.agent_manager import AgentManager
@@ -290,14 +243,13 @@ def check(
             border_style="cyan",
         ))
 
-        base = Path(base_dir).resolve()
-        gc_config = load_gc_config(base)
+        base = get_base_dir()
         
         checks = []
         
         # Check 1: Project config exists
         try:
-            project_path = find_project_config(project, base / gc_config.projects_dir)
+            project_path = find_project_config(project, base / "projects")
             project_config = load_project_config(project_path)
             checks.append(("✓", "green", f"Project config found: {project_path.name}"))
         except FileNotFoundError as e:
@@ -334,7 +286,7 @@ def check(
             checks.append(("✗", "red", f"Implementer '{implementer_name}' not found ({instruction})"))
         
         # Check 5: Agents
-        agent_manager = AgentManager(base / gc_config.agents_dir)
+        agent_manager = AgentManager(base / "agents")
         try:
             agent_manager.load_all()
             missing_agents = [a for a in project_config.agents if a not in agent_manager._agents]
@@ -343,7 +295,7 @@ def check(
             else:
                 checks.append(("✗", "red", f"Missing agents: {', '.join(missing_agents)}"))
         except FileNotFoundError:
-            checks.append(("✗", "red", f"Agents directory not found: {base / gc_config.agents_dir}"))
+            checks.append(("✗", "red", f"Agents directory not found: {base / 'agents'}"))
         
         # Check 6: Tickets
         ticket_path = Path(project_config.ticket_source.path)
@@ -394,20 +346,18 @@ def check(
 
 @agents_app.command("list")
 def agents_list(
-    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
 ):
     """List all available agent definitions."""
     from ground_control.agent_manager import AgentManager
-    from ground_control.config import load_gc_config
+    from ground_control.config import get_base_dir
 
-    base = Path(base_dir).resolve()
-    gc_config = load_gc_config(base)
-    manager = AgentManager(base / gc_config.agents_dir)
+    base = get_base_dir()
+    manager = AgentManager(base / "agents")
 
     try:
         agents = manager.load_all()
     except FileNotFoundError:
-        console.print("[red]Agents directory not found. Run 'gc init' first.[/]")
+        console.print("[red]Agents directory not found.[/]")
         raise typer.Exit(1)
 
     if not agents:
@@ -439,18 +389,16 @@ def agents_list(
 @tickets_app.command("list")
 def tickets_list(
     project: str = typer.Argument(..., help="Project name"),
-    base_dir: str = typer.Option(".", "--base-dir", "-d", help="Ground-control workspace directory"),
 ):
     """List tickets for a project."""
     async def _list():
-        from ground_control.config import load_gc_config, find_project_config, load_project_config
+        from ground_control.config import get_base_dir, find_project_config, load_project_config
         from ground_control.ticket_sources import get_ticket_source
 
-        base = Path(base_dir).resolve()
-        gc_config = load_gc_config(base)
+        base = get_base_dir()
 
         try:
-            project_path = find_project_config(project, base / gc_config.projects_dir)
+            project_path = find_project_config(project, base / "projects")
         except FileNotFoundError as e:
             console.print(f"[red]{e}[/]")
             raise typer.Exit(1)
