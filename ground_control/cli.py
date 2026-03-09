@@ -106,6 +106,49 @@ def run(
 
 
 @app.command()
+def resume(
+    project: str = typer.Argument(..., help="Project name to resume"),
+    run_id: str = typer.Option(None, "--run-id", "-r", help="Specific run ID (defaults to latest incomplete)"),
+    retry_failed: bool = typer.Option(False, "--retry-failed", help="Retry failed tasks in addition to pending ones"),
+):
+    """Resume an incomplete or failed run, re-executing pending tasks."""
+    async def _resume():
+        from ground_control.config import get_base_dir
+        from ground_control.orchestrator import Orchestrator
+        from ground_control.state import StateStore, RunStatus
+
+        base = get_base_dir()
+        state = StateStore(base / "ground_control.db")
+        await state.initialize()
+
+        # Find the run to resume
+        if run_id:
+            target_run_id = run_id
+        else:
+            runs = await state.list_runs(project_name=project, limit=1)
+            if not runs:
+                console.print(f"[red]No runs found for project '{project}'[/]")
+                raise typer.Exit(1)
+            target_run_id = runs[0]["id"]
+            run_status = runs[0]["status"]
+            if run_status == RunStatus.COMPLETED.value:
+                console.print(f"[yellow]Latest run {target_run_id} is already completed.[/]")
+                console.print("[dim]Use --run-id to specify a different run.[/]")
+                await state.close()
+                return
+
+        await state.close()
+
+        orchestrator = await Orchestrator.from_project_name(project)
+        try:
+            await orchestrator.resume(target_run_id, retry_failed=retry_failed)
+        finally:
+            await orchestrator.cleanup()
+
+    _run_async(_resume())
+
+
+@app.command()
 def status(
     project: str = typer.Argument(..., help="Project name"),
     run_id: str = typer.Option(None, "--run-id", "-r", help="Specific run ID (defaults to latest)"),
@@ -191,6 +234,42 @@ def status(
             await state.close()
 
     _run_async(_status())
+
+
+@app.command()
+def test_cursor():
+    """Test if Cursor CLI is working properly."""
+    async def _test():
+        from ground_control.implementers.cursor_cli import CursorCLIImplementer
+        import tempfile
+        
+        console.print("[bold]Testing Cursor CLI...[/]")
+        
+        impl = CursorCLIImplementer()
+        if not await impl.is_available():
+            console.print("[red]✗ Cursor CLI not found in PATH[/]")
+            console.print("[dim]Install from: https://cursor.com[/]")
+            raise typer.Exit(1)
+        
+        console.print("[green]✓ Cursor CLI found in PATH[/]")
+        
+        # Try a simple test execution
+        with tempfile.TemporaryDirectory() as tmpdir:
+            console.print(f"\n[dim]Testing with simple prompt in {tmpdir}[/]")
+            result = await impl.execute(
+                prompt="Print 'Hello from Ground Control' to console",
+                project_path=tmpdir,
+            )
+            
+            if result.success:
+                console.print("\n[green]✓ Cursor CLI is working![/]")
+                console.print(f"[dim]Output: {result.output[:200]}...[/]" if len(result.output) > 200 else f"[dim]Output: {result.output}[/]")
+            else:
+                console.print("\n[red]✗ Cursor CLI test failed[/]")
+                console.print(f"[red]Error: {result.error}[/]")
+                raise typer.Exit(1)
+    
+    _run_async(_test())
 
 
 @app.command()

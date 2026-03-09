@@ -1,7 +1,7 @@
-# Example Project Configuration
-# Copy this file and customize for your project
+# Example Project Configuration Template
+# Copy this file to <project-name>.yaml and customize for your project
 
-name: example
+name: my-project  # Change this to your project name
 repo_path: /path/to/your/project  # Absolute path to your project repository
 structure:
   language: python
@@ -18,4 +18,3 @@ settings:
   implementer: cursor_cli  # or claude_code
   llm_provider: anthropic
   llm_model: claude-sonnet-4-20250514
-

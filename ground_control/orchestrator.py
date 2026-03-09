@@ -153,6 +153,82 @@ class Orchestrator:
 
         return run_id
 
+    async def resume(self, run_id: str, retry_failed: bool = False) -> str:
+        """Resume an incomplete run by re-executing pending/interrupted tasks.
+        
+        Args:
+            run_id: The run ID to resume
+            retry_failed: If True, reset failed tasks to pending and retry them
+        """
+        config = self.project_config
+
+        # Reset interrupted and optionally failed tasks back to pending
+        all_tasks = await self.state.list_tasks(run_id)
+        reset_count = 0
+        for task in all_tasks:
+            if task["status"] in (TaskStatus.RUNNING.value, TaskStatus.QUEUED.value):
+                await self.state.update_task_status(task["id"], TaskStatus.PENDING)
+                reset_count += 1
+            elif retry_failed and task["status"] == TaskStatus.FAILED.value:
+                await self.state.update_task_status(task["id"], TaskStatus.PENDING)
+                reset_count += 1
+
+        completed = sum(1 for t in all_tasks if t["status"] == TaskStatus.COMPLETED.value)
+        failed = sum(1 for t in all_tasks if t["status"] == TaskStatus.FAILED.value)
+        pending = len(all_tasks) - completed - failed
+
+        status_msg = (
+            f"[bold]Project:[/] {config.name}\n"
+            f"[bold]Run ID:[/] {run_id}\n"
+            f"[bold]Tasks:[/] {len(all_tasks)} total "
+            f"({completed} completed, {failed} failed, {pending} remaining)\n"
+            f"[bold]Reset:[/] {reset_count} interrupted"
+        )
+        if retry_failed:
+            status_msg += "/failed"
+        status_msg += " tasks reset to pending"
+        
+        console.print(Panel(
+            status_msg,
+            title="[bold cyan]Ground Control - Resume[/]",
+            border_style="cyan",
+        ))
+
+        if pending == 0:
+            console.print("[yellow]No pending tasks to execute.[/]")
+            if failed > 0 and not retry_failed:
+                console.print("[dim]Tip: Use --retry-failed to retry failed tasks[/]")
+            return run_id
+
+        console.print(f"\n[bold yellow]Executing remaining tasks[/] (max parallel: {config.settings.max_parallel_agents})...")
+        await self.state.update_run_status(run_id, RunStatus.RUNNING)
+
+        queue = TaskQueue(
+            state=self.state,
+            max_parallel=config.settings.max_parallel_agents,
+        )
+
+        results = await queue.execute_all(run_id, self._execute_task)
+
+        succeeded = sum(1 for r in results if r.success)
+        new_failed = sum(1 for r in results if not r.success)
+
+        # Check final state including previously completed tasks
+        all_tasks_final = await self.state.list_tasks(run_id)
+        total_failed = sum(1 for t in all_tasks_final if t["status"] == TaskStatus.FAILED.value)
+
+        final_status = RunStatus.COMPLETED if total_failed == 0 else RunStatus.FAILED
+        await self.state.update_run_status(run_id, final_status)
+
+        console.print(Panel(
+            f"[bold green]Completed:[/] {succeeded}  [bold red]Failed:[/] {new_failed}  "
+            f"[bold]Total this run:[/] {len(results)}",
+            title=f"[bold cyan]Run {run_id} - {'SUCCESS' if total_failed == 0 else 'PARTIAL FAILURE'}[/]",
+            border_style="green" if total_failed == 0 else "red",
+        ))
+
+        return run_id
+
     async def _execute_task(self, task: dict) -> TaskResult:
         """Execute a single task using the assigned agent and implementer."""
         task_id = task["id"]

@@ -132,23 +132,31 @@ class Planner:
         # Generate a unique prefix for this planning session
         session_prefix = uuid.uuid4().hex[:6]
 
+        # Build a mapping from LLM-generated IDs to our stable IDs
+        id_map: dict[str, str] = {}
         for idx, raw in enumerate(raw_tasks):
-            # Always generate a globally unique ID by including session prefix
-            task_id = f"task-{session_prefix}-{idx+1:03d}"
-            
-            # Ensure uniqueness within this session (paranoid check)
-            while task_id in seen_ids:
-                task_id = f"task-{session_prefix}-{idx+1:03d}-{uuid.uuid4().hex[:4]}"
-            
-            seen_ids.add(task_id)
-            
+            original_id = raw.get("id", f"task-{idx+1}")
+            new_id = f"task-{session_prefix}-{idx+1:03d}"
+            while new_id in seen_ids:
+                new_id = f"task-{session_prefix}-{idx+1:03d}-{uuid.uuid4().hex[:4]}"
+            seen_ids.add(new_id)
+            id_map[original_id] = new_id
+
+        for idx, raw in enumerate(raw_tasks):
+            original_id = raw.get("id", f"task-{idx+1}")
+            task_id = id_map[original_id]
+
+            # Remap dependency IDs to our stable IDs
+            raw_deps = raw.get("dependencies", [])
+            remapped_deps = [id_map[dep] for dep in raw_deps if dep in id_map]
+
             planned.append(PlannedTask(
                 id=task_id,
                 title=raw.get("title", "Untitled task"),
                 description=raw.get("description", ""),
                 assigned_agent=raw.get("assigned_agent", "developer"),
                 priority=int(raw.get("priority", 0)),
-                dependencies=raw.get("dependencies", []),
+                dependencies=remapped_deps,
                 ticket_id=raw.get("ticket_id"),
             ))
 

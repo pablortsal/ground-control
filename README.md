@@ -138,6 +138,7 @@ dependencies: []
 ```
 
 **Ticket Fields**:
+
 - `id`: Unique identifier (required)
 - `title`: Short description (required)
 - `description`: Detailed explanation of what needs to be done
@@ -152,18 +153,41 @@ Place tickets in your project's ticket directory (e.g., `/path/to/your/project/t
 ## CLI Commands
 
 
-| Command                       | Description                                  |
-| ----------------------------- | -------------------------------------------- |
-| `gctl check <project>`        | Validate setup (API keys, CLI tools, config) |
-| `gctl run <project>`          | Run orchestration for a project              |
-| `gctl status <project>`       | Show run/task status                         |
-| `gctl clean`                  | Delete database and reset run history        |
-| `gctl agents list`            | List available agents                        |
-| `gctl tickets list <project>` | List project tickets                         |
-| `gctl version`                | Show version                                 |
+| Command                       | Description                                       |
+| ----------------------------- | ------------------------------------------------- |
+| `gctl run <project>`          | Run orchestration for a project                   |
+| `gctl resume <project>`       | Resume an incomplete or failed run                |
+| `gctl status <project>`       | Show run/task status                              |
+| `gctl check <project>`        | Validate setup (API keys, CLI tools, config)      |
+| `gctl test-cursor`            | Test if Cursor CLI is working properly            |
+| `gctl clean`                  | Delete database and reset run history             |
+| `gctl agents list`            | List available agents                             |
+| `gctl tickets list <project>` | List project tickets                              |
+| `gctl version`                | Show version                                      |
 
 
-## Requirements
+## Troubleshooting
+
+### Cursor CLI Connection Issues
+
+If you see "Connection lost, reconnecting..." errors from Cursor CLI:
+
+1. **Test the CLI**: Run `gctl test-cursor` to verify Cursor CLI is working
+2. **Check your internet**: Cursor CLI requires a network connection to their backend
+3. **Retry**: Ground Control automatically retries connection failures up to 2 times
+4. **Resume**: If a run fails, use `gctl resume <project>` to pick up where it left off
+5. **Alternative**: Switch to `claude_code` implementer in your project config
+
+### Check Your Setup
+
+Run `gctl check <project>` to verify:
+- Project configuration is valid
+- API keys are set
+- Implementer CLI tools are installed
+- Agents are available
+- Ticket directory exists
+
+## CLI Commands
 
 - Python >= 3.10
 - API keys for your chosen LLM provider (set via `.env` file or environment variables):
